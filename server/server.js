@@ -75,7 +75,14 @@ async function handleGhostEvent(eventType, req, res) {
     };
 
     const queryRes = await axios.post(graphqlEndpoint, query, { headers });
-    const latestDeploymentId = queryRes.data.data.service.deployments.edges[0].node.id;
+    const latestDeploymentId = queryRes?.data?.data?.service?.deployments?.edges?.[0]?.node?.id;
+
+    if (!latestDeploymentId) {
+      console.error("❌ Could not fetch latest deployment ID. Full response:", queryRes.data);
+      return res.status(500).send("No deployment ID found");
+    }
+
+    console.log("🚀 Latest deployment ID:", latestDeploymentId);
 
     const mutation = {
       query: `
@@ -95,8 +102,8 @@ async function handleGhostEvent(eventType, req, res) {
     console.log("✅ Redeploy triggered:", redeployRes.data);
     res.status(200).send("Redeploy triggered");
   } catch (err) {
-    console.error("💥 Redeploy failed:", JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
-    res.status(500).send("Deploy failed");
+    console.error("💥 Error during Railway redeploy:", JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
+    res.status(500).send("Error during redeploy");
   }
 }
 
