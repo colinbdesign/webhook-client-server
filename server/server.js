@@ -20,42 +20,37 @@ app.get("/", (req, res) => {
   res.send("Welcome to the Webhook Server!");
 });
 
+app.post("/webhook/published", async (req, res) => {
+  await handleGhostEvent("post.published", req, res);
+});
 
+app.post("/webhook/updated", async (req, res) => {
+  await handleGhostEvent("post.published.edited", req, res);
+});
 
-app.post("/webhook", async (req, res) => {
-  const axios = require('axios');
+app.post("/webhook/unpublished", async (req, res) => {
+  await handleGhostEvent("post.unpublished", req, res);
+});
 
+app.post("/webhook/deleted", async (req, res) => {
+  await handleGhostEvent("post.deleted", req, res);
+});
+
+async function handleGhostEvent(eventType, req, res) {
+  const axios = require("axios");
   const RAILWAY_TOKEN = process.env.RAILWAY_API_TOKEN;
   const PROJECT_ID = process.env.RAILWAY_PROJECT_ID;
   const ENV_ID = process.env.RAILWAY_ENVIRONMENT_ID;
   const SERVICE_ID = process.env.RAILWAY_SERVICE_ID;
 
-  const allowedEvents = [
-    "post.published",
-    "post.published.edited",
-    "post.unpublished",
-    "post.deleted"
-  ];
-
-  const ghostEvent = req.get("X-Ghost-Event");
-  console.log("📨 Ghost event header:", ghostEvent);
-  console.log("🔔 Received Ghost event:", ghostEvent);
-  console.log("📦 Full payload:", req.body);
-  console.log("🐛 FULL REQUEST:", {
-    headers: req.headers,
-    body: req.body
-  });
-
-  if (!allowedEvents.includes(ghostEvent)) {
-    console.log("⚠️ Event not allowed, skipping.");
-    return res.status(200).send("Ignored event.");
-  }
-
-  const graphqlEndpoint = 'https://backboard.railway.app/graphql/v2';
+  const graphqlEndpoint = "https://backboard.railway.app/graphql/v2";
   const headers = {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${RAILWAY_TOKEN}`
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${RAILWAY_TOKEN}`
   };
+
+  console.log(`🚨 Received event: ${eventType}`);
+  console.log("📦 Payload:", req.body);
 
   try {
     const query = {
@@ -80,14 +75,7 @@ app.post("/webhook", async (req, res) => {
     };
 
     const queryRes = await axios.post(graphqlEndpoint, query, { headers });
-    const latestDeploymentId = queryRes?.data?.data?.service?.deployments?.edges?.[0]?.node?.id;
-
-    if (!latestDeploymentId) {
-      console.error("❌ Could not fetch latest deployment ID. Full response:", queryRes.data);
-      return res.status(500).send("No deployment ID found");
-    }
-
-    console.log("🚀 Latest deployment ID:", latestDeploymentId);
+    const latestDeploymentId = queryRes.data.data.service.deployments.edges[0].node.id;
 
     const mutation = {
       query: `
@@ -105,12 +93,12 @@ app.post("/webhook", async (req, res) => {
 
     const redeployRes = await axios.post(graphqlEndpoint, mutation, { headers });
     console.log("✅ Redeploy triggered:", redeployRes.data);
-    return res.status(200).send("Redeploy triggered");
+    res.status(200).send("Redeploy triggered");
   } catch (err) {
-    console.error("💥 Error during Railway redeploy:", JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
-    return res.status(500).send("Error during redeploy");
+    console.error("💥 Redeploy failed:", JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
+    res.status(500).send("Deploy failed");
   }
-});
+}
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}/`);
