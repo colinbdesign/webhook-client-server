@@ -61,44 +61,28 @@ async function handleGhostEvent(eventType, req, res) {
   try {
     // Try using Railway's REST API instead of GraphQL
     // First get the latest deployment
-    const railwayApiUrl = "https://backboard.railway.app/api/v2";
+    const railwayApiUrl = "https://backboard.railway.app/api/projects";
     const headers = {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${RAILWAY_TOKEN}`
     };
 
-    console.log("📝 Fetching latest deployment");
-    const deploymentsUrl = `${railwayApiUrl}/services/${SERVICE_ID}/environments/${ENV_ID}/deployments`;
-    const deploymentsRes = await axios.get(deploymentsUrl, { 
+    console.log("📝 Attempting deployment with Railway CLI approach");
+    
+    // Directly trigger a new deployment using simpler endpoint
+    const deployUrl = `${railwayApiUrl}/${PROJECT_ID}/services/${SERVICE_ID}/deploy`;
+    console.log("🚀 Deploy URL:", deployUrl);
+    
+    const deployRes = await axios.post(deployUrl, {
+      environmentId: ENV_ID
+    }, { 
       headers,
-      timeout: 10000 
+      timeout: 15000 
     });
     
-    console.log("📬 Deployments response status:", deploymentsRes.status);
-    
-    if (!deploymentsRes.data || !deploymentsRes.data.length) {
-      console.error("❌ No deployments found");
-      return res.status(500).send("No deployments found");
-    }
-    
-    // Get the most recent deployment
-    const latestDeployment = deploymentsRes.data[0];
-    const deploymentId = latestDeployment.id;
-    
-    if (!deploymentId) {
-      console.error("❌ Could not find deployment ID");
-      return res.status(500).send("No deployment ID found");
-    }
-    
-    console.log("🚀 Latest deployment ID:", deploymentId);
-
-    // Trigger redeploy using REST API
-    console.log("📝 Triggering redeploy");
-    const redeployUrl = `${railwayApiUrl}/deployments/${deploymentId}/redeploy`;
-    const redeployRes = await axios.post(redeployUrl, {}, { headers });
-    
-    console.log("✅ Redeploy triggered:", redeployRes.data);
-    res.status(200).send("Redeploy triggered");
+    console.log("📬 Deploy response status:", deployRes.status);
+    console.log("✅ Deployment triggered:", deployRes.data);
+    res.status(200).send("Deployment triggered successfully");
   } catch (err) {
     console.error("💥 Error during Railway redeploy:");
     
