@@ -59,28 +59,38 @@ async function handleGhostEvent(eventType, req, res) {
   console.log("📦 Payload:", req.body);
 
   try {
-    // Try using Railway's REST API instead of GraphQL
-    // First get the latest deployment
-    const railwayApiUrl = "https://backboard.railway.app/api/projects";
+    // Railway uses GraphQL API - let's use the correct mutation
+    const railwayApiUrl = "https://backboard.railway.app/graphql/v2";
     const headers = {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${RAILWAY_TOKEN}`
     };
 
-    console.log("📝 Attempting deployment with Railway CLI approach");
+    console.log("📝 Triggering deployment via Railway GraphQL API");
     
-    // Directly trigger a new deployment using simpler endpoint
-    const deployUrl = `${railwayApiUrl}/${PROJECT_ID}/services/${SERVICE_ID}/deploy`;
-    console.log("🚀 Deploy URL:", deployUrl);
+    // GraphQL mutation to trigger a new deployment
+    const deploymentMutation = {
+      query: `
+        mutation DeployService($serviceId: ID!, $environmentId: ID!) {
+          serviceDeployment(serviceId: $serviceId, environmentId: $environmentId) {
+            id
+            status
+          }
+        }
+      `,
+      variables: {
+        serviceId: SERVICE_ID,
+        environmentId: ENV_ID
+      }
+    };
     
-    const deployRes = await axios.post(deployUrl, {
-      environmentId: ENV_ID
-    }, { 
+    console.log("🚀 Sending deployment request");
+    const deployRes = await axios.post(railwayApiUrl, deploymentMutation, { 
       headers,
       timeout: 15000 
     });
     
-    console.log("📬 Deploy response status:", deployRes.status);
+    console.log("📬 Deployment response status:", deployRes.status);
     console.log("✅ Deployment triggered:", deployRes.data);
     res.status(200).send("Deployment triggered successfully");
   } catch (err) {
