@@ -20,25 +20,7 @@ app.get("/", (req, res) => {
   res.send("Welcome to the Webhook Server!");
 });
 
-app.post("/webhook-1", (req, res) => {
-  console.log("Webhook 1 received:");
-  console.log("Headers:", req.headers);
-  console.log("Body:", req.body);
-  res.json({
-    message: "Webhook 1 successfully received.",
-    receivedData: req.body
-  });
-});
 
-app.post("/webhook-2", (req, res) => {
-  console.log("Webhook 2 received:");
-  console.log("Headers:", req.headers);
-  console.log("Body:", req.body);
-  res.json({
-    message: "Webhook 2 successfully received.",
-    receivedData: req.body
-  });
-});
 
 app.post("/webhook", async (req, res) => {
   const axios = require('axios');
@@ -59,6 +41,10 @@ app.post("/webhook", async (req, res) => {
   console.log("📨 Ghost event header:", ghostEvent);
   console.log("🔔 Received Ghost event:", ghostEvent);
   console.log("📦 Full payload:", req.body);
+  console.log("🐛 FULL REQUEST:", {
+    headers: req.headers,
+    body: req.body
+  });
 
   if (!allowedEvents.includes(ghostEvent)) {
     console.log("⚠️ Event not allowed, skipping.");
