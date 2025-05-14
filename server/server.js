@@ -43,6 +43,14 @@ async function handleGhostEvent(eventType, req, res) {
   const ENV_ID = process.env.RAILWAY_ENVIRONMENT_ID;
   const SERVICE_ID = process.env.RAILWAY_SERVICE_ID;
 
+  // Log environment variable availability (sanitized)
+  console.log("🔑 Environment check:", {
+    hasToken: !!RAILWAY_TOKEN,
+    hasProjectID: !!PROJECT_ID,
+    hasEnvID: !!ENV_ID,
+    hasServiceID: !!SERVICE_ID
+  });
+
   const graphqlEndpoint = "https://backboard.railway.app/graphql/v2";
   const headers = {
     "Content-Type": "application/json",
@@ -74,7 +82,9 @@ async function handleGhostEvent(eventType, req, res) {
       }
     };
 
+    console.log("📝 Sending Railway query:", JSON.stringify(query.variables));
     const queryRes = await axios.post(graphqlEndpoint, query, { headers });
+    console.log("📬 Railway query response status:", queryRes.status);
     const latestDeploymentId = queryRes?.data?.data?.service?.deployments?.edges?.[0]?.node?.id;
 
     if (!latestDeploymentId) {
@@ -98,6 +108,7 @@ async function handleGhostEvent(eventType, req, res) {
       }
     };
 
+    console.log("📝 Sending Railway mutation:", JSON.stringify(mutation.variables));
     const redeployRes = await axios.post(graphqlEndpoint, mutation, { headers });
     console.log("✅ Redeploy triggered:", redeployRes.data);
     res.status(200).send("Redeploy triggered");
