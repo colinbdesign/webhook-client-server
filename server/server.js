@@ -46,9 +46,13 @@ async function handleGhostEvent(eventType, req, res) {
   // Log environment variable availability (sanitized)
   console.log("🔑 Environment check:", {
     hasToken: !!RAILWAY_TOKEN,
+    tokenLength: RAILWAY_TOKEN ? RAILWAY_TOKEN.length : 0,
     hasProjectID: !!PROJECT_ID,
+    projectIDLength: PROJECT_ID ? PROJECT_ID.length : 0,
     hasEnvID: !!ENV_ID,
-    hasServiceID: !!SERVICE_ID
+    envIDLength: ENV_ID ? ENV_ID.length : 0,
+    hasServiceID: !!SERVICE_ID,
+    serviceIDLength: SERVICE_ID ? SERVICE_ID.length : 0
   });
 
   const graphqlEndpoint = "https://backboard.railway.app/graphql/v2";
@@ -65,6 +69,8 @@ async function handleGhostEvent(eventType, req, res) {
       query: `
         query ($serviceId: ID!, $environmentId: ID!) {
           service(id: $serviceId) {
+            id
+            name
             deployments(environmentId: $environmentId, first: 1) {
               edges {
                 node {
@@ -83,7 +89,10 @@ async function handleGhostEvent(eventType, req, res) {
     };
 
     console.log("📝 Sending Railway query:", JSON.stringify(query.variables));
-    const queryRes = await axios.post(graphqlEndpoint, query, { headers });
+    const queryRes = await axios.post(graphqlEndpoint, query, { 
+      headers,
+      timeout: 10000 
+    });
     console.log("📬 Railway query response status:", queryRes.status);
     const latestDeploymentId = queryRes?.data?.data?.service?.deployments?.edges?.[0]?.node?.id;
 
@@ -113,7 +122,23 @@ async function handleGhostEvent(eventType, req, res) {
     console.log("✅ Redeploy triggered:", redeployRes.data);
     res.status(200).send("Redeploy triggered");
   } catch (err) {
-    console.error("💥 Error during Railway redeploy:", JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
+    console.error("💥 Error during Railway redeploy:");
+    
+    // Log more detailed error information
+    if (err.response) {
+      // The request was made and the server responded with a status code outside of 2xx
+      console.error("📄 Response data:", err.response.data);
+      console.error("📊 Response status:", err.response.status);
+      console.error("📋 Response headers:", err.response.headers);
+    } else if (err.request) {
+      // The request was made but no response was received
+      console.error("🔄 Request made but no response received:", err.request);
+    } else {
+      // Something happened in setting up the request
+      console.error("🛑 Error setting up request:", err.message);
+    }
+    
+    console.error("Stack trace:", err.stack);
     res.status(500).send("Error during redeploy");
   }
 }
