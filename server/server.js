@@ -55,7 +55,8 @@ app.post("/webhook", async (req, res) => {
     "post.deleted"
   ];
 
-  const ghostEvent = req.body?.event;
+  const ghostEvent = req.get("X-Ghost-Event");
+  console.log("📨 Ghost event header:", ghostEvent);
   console.log("🔔 Received Ghost event:", ghostEvent);
   console.log("📦 Full payload:", req.body);
 
