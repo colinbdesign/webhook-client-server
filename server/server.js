@@ -55,70 +55,48 @@ async function handleGhostEvent(eventType, req, res) {
     serviceIDLength: SERVICE_ID ? SERVICE_ID.length : 0
   });
 
-  const graphqlEndpoint = "https://backboard.railway.app/graphql/v2";
-  const headers = {
-    "Content-Type": "application/json",
-    "Authorization": `Bearer ${RAILWAY_TOKEN}`
-  };
-
   console.log(`🚨 Received event: ${eventType}`);
   console.log("📦 Payload:", req.body);
 
   try {
-    const query = {
-      query: `
-        query ($serviceId: ID!, $environmentId: ID!) {
-          service(id: $serviceId) {
-            id
-            name
-            deployments(environmentId: $environmentId, first: 1) {
-              edges {
-                node {
-                  id
-                  status
-                }
-              }
-            }
-          }
-        }
-      `,
-      variables: {
-        serviceId: SERVICE_ID,
-        environmentId: ENV_ID
-      }
+    // Try using Railway's REST API instead of GraphQL
+    // First get the latest deployment
+    const railwayApiUrl = "https://backboard.railway.app/api/v2";
+    const headers = {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${RAILWAY_TOKEN}`
     };
 
-    console.log("📝 Sending Railway query:", JSON.stringify(query.variables));
-    const queryRes = await axios.post(graphqlEndpoint, query, { 
+    console.log("📝 Fetching latest deployment");
+    const deploymentsUrl = `${railwayApiUrl}/services/${SERVICE_ID}/environments/${ENV_ID}/deployments`;
+    const deploymentsRes = await axios.get(deploymentsUrl, { 
       headers,
       timeout: 10000 
     });
-    console.log("📬 Railway query response status:", queryRes.status);
-    const latestDeploymentId = queryRes?.data?.data?.service?.deployments?.edges?.[0]?.node?.id;
-
-    if (!latestDeploymentId) {
-      console.error("❌ Could not fetch latest deployment ID. Full response:", queryRes.data);
+    
+    console.log("📬 Deployments response status:", deploymentsRes.status);
+    
+    if (!deploymentsRes.data || !deploymentsRes.data.length) {
+      console.error("❌ No deployments found");
+      return res.status(500).send("No deployments found");
+    }
+    
+    // Get the most recent deployment
+    const latestDeployment = deploymentsRes.data[0];
+    const deploymentId = latestDeployment.id;
+    
+    if (!deploymentId) {
+      console.error("❌ Could not find deployment ID");
       return res.status(500).send("No deployment ID found");
     }
+    
+    console.log("🚀 Latest deployment ID:", deploymentId);
 
-    console.log("🚀 Latest deployment ID:", latestDeploymentId);
-
-    const mutation = {
-      query: `
-        mutation ($deploymentId: String!) {
-          deploymentRedeploy(id: $deploymentId) {
-            id
-            status
-          }
-        }
-      `,
-      variables: {
-        deploymentId: latestDeploymentId
-      }
-    };
-
-    console.log("📝 Sending Railway mutation:", JSON.stringify(mutation.variables));
-    const redeployRes = await axios.post(graphqlEndpoint, mutation, { headers });
+    // Trigger redeploy using REST API
+    console.log("📝 Triggering redeploy");
+    const redeployUrl = `${railwayApiUrl}/deployments/${deploymentId}/redeploy`;
+    const redeployRes = await axios.post(redeployUrl, {}, { headers });
+    
     console.log("✅ Redeploy triggered:", redeployRes.data);
     res.status(200).send("Redeploy triggered");
   } catch (err) {
