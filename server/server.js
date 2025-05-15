@@ -38,7 +38,7 @@ async function triggerDeploy(eventType, req, res) {
   const graphqlEndpoint = "https://backboard.railway.app/graphql/v2";
   const headers = {
     "Content-Type": "application/json",
-    "Authorization": `Bearer ${token}`
+    "Project-Access-Token": token
   };
 
   const mutation = {
