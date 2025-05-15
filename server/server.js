@@ -31,6 +31,10 @@ async function triggerDeploy(eventType, req, res) {
     return res.status(500).send("Server misconfigured");
   }
 
+  console.log(`🚨 Deploy URL: https://backboard.railway.app/api/projects/${projectId}/services/${serviceId}/deploy`);
+  console.log(`🌍 Env ID: ${environmentId}`);
+  console.log(`🔐 Token present: ${!!token}, length: ${token?.length}`);
+
   const deployUrl = `https://backboard.railway.app/api/projects/${projectId}/services/${serviceId}/deploy`;
 
   console.log(`📣 Received Ghost event: ${eventType}`);
