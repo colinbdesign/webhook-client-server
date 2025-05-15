@@ -21,7 +21,7 @@ app.post("/webhook/unpublished", (req, res) => triggerDeploy("post.unpublished",
 app.post("/webhook/deleted", (req, res) => triggerDeploy("post.deleted", req, res));
 
 async function triggerDeploy(eventType, req, res) {
-  const token = process.env.RAILWAY_TOKEN;
+  const token = process.env.RAILWAY_API_TOKEN;
   const projectId = process.env.RAILWAY_PROJECT_ID;
   const serviceId = process.env.RAILWAY_ASTRO_SERVICE_ID;
   const environmentId = process.env.RAILWAY_ENVIRONMENT_ID;
