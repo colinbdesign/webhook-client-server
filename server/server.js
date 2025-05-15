@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const axios = require("axios");
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -9,112 +10,58 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Error handler
-app.use((err, req, res, next) => {
-  console.error("Error stack:", err.stack);
-  res.status(500).send("Internal Server Error");
-});
-
 // Routes
 app.get("/", (req, res) => {
-  res.send("Welcome to the Webhook Server!");
+  res.send("👋 Webhook server is online!");
 });
 
-app.post("/webhook/published", async (req, res) => {
-  await handleGhostEvent("post.published", req, res);
-});
+app.post("/webhook/published", (req, res) => triggerDeploy("post.published", req, res));
+app.post("/webhook/updated", (req, res) => triggerDeploy("post.updated", req, res));
+app.post("/webhook/unpublished", (req, res) => triggerDeploy("post.unpublished", req, res));
+app.post("/webhook/deleted", (req, res) => triggerDeploy("post.deleted", req, res));
 
-app.post("/webhook/updated", async (req, res) => {
-  await handleGhostEvent("post.published.edited", req, res);
-});
+async function triggerDeploy(eventType, req, res) {
+  const token = process.env.RAILWAY_API_TOKEN;
+  const projectId = process.env.RAILWAY_PROJECT_ID;
+  const serviceId = process.env.RAILWAY_ASTRO_SERVICE_ID;
+  const environmentId = process.env.RAILWAY_ENVIRONMENT_ID;
 
-app.post("/webhook/unpublished", async (req, res) => {
-  await handleGhostEvent("post.unpublished", req, res);
-});
+  if (!token || !projectId || !serviceId || !environmentId) {
+    console.error("❌ Missing required environment variables");
+    return res.status(500).send("Server misconfigured");
+  }
 
-app.post("/webhook/deleted", async (req, res) => {
-  await handleGhostEvent("post.deleted", req, res);
-});
+  const deployUrl = `https://backboard.railway.app/api/projects/${projectId}/services/${serviceId}/deploy`;
 
-async function handleGhostEvent(eventType, req, res) {
-  const axios = require("axios");
-  const RAILWAY_TOKEN = process.env.RAILWAY_API_TOKEN;
-  const PROJECT_ID = process.env.RAILWAY_PROJECT_ID;
-  const ENV_ID = process.env.RAILWAY_ENVIRONMENT_ID;
-  const SERVICE_ID = process.env.RAILWAY_SERVICE_ID;
-
-  // Log environment variable availability (sanitized)
-  console.log("🔑 Environment check:", {
-    hasToken: !!RAILWAY_TOKEN,
-    tokenLength: RAILWAY_TOKEN ? RAILWAY_TOKEN.length : 0,
-    hasProjectID: !!PROJECT_ID,
-    projectIDLength: PROJECT_ID ? PROJECT_ID.length : 0,
-    hasEnvID: !!ENV_ID,
-    envIDLength: ENV_ID ? ENV_ID.length : 0,
-    hasServiceID: !!SERVICE_ID,
-    serviceIDLength: SERVICE_ID ? SERVICE_ID.length : 0
-  });
-
-  console.log(`🚨 Received event: ${eventType}`);
-  console.log("📦 Payload:", req.body);
+  console.log(`📣 Received Ghost event: ${eventType}`);
+  console.log("📦 Webhook payload:", req.body);
 
   try {
-    // Railway uses GraphQL API - let's use the correct mutation
-    const railwayApiUrl = "https://backboard.railway.app/graphql/v2";
-    const headers = {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${RAILWAY_TOKEN}`
-    };
-
-    console.log("📝 Triggering deployment via Railway GraphQL API");
-    
-    // GraphQL mutation to trigger a new deployment
-    const deploymentMutation = {
-      query: `
-        mutation DeployService($serviceId: ID!, $environmentId: ID!) {
-          serviceDeployment(serviceId: $serviceId, environmentId: $environmentId) {
-            id
-            status
-          }
-        }
-      `,
-      variables: {
-        serviceId: SERVICE_ID,
-        environmentId: ENV_ID
+    const response = await axios.post(
+      deployUrl,
+      { environmentId },
+      {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        timeout: 10000
       }
-    };
-    
-    console.log("🚀 Sending deployment request");
-    const deployRes = await axios.post(railwayApiUrl, deploymentMutation, { 
-      headers,
-      timeout: 15000 
-    });
-    
-    console.log("📬 Deployment response status:", deployRes.status);
-    console.log("✅ Deployment triggered:", deployRes.data);
-    res.status(200).send("Deployment triggered successfully");
+    );
+
+    console.log(`✅ Triggered Railway deploy for ${eventType}`);
+    res.status(200).send("Deployment triggered");
   } catch (err) {
-    console.error("💥 Error during Railway redeploy:");
-    
-    // Log more detailed error information
+    console.error("💥 Error triggering Railway deploy");
     if (err.response) {
-      // The request was made and the server responded with a status code outside of 2xx
-      console.error("📄 Response data:", err.response.data);
-      console.error("📊 Response status:", err.response.status);
-      console.error("📋 Response headers:", err.response.headers);
-    } else if (err.request) {
-      // The request was made but no response was received
-      console.error("🔄 Request made but no response received:", err.request);
+      console.error("📄 Response:", err.response.data);
     } else {
-      // Something happened in setting up the request
-      console.error("🛑 Error setting up request:", err.message);
+      console.error("🛑 Error:", err.message);
     }
-    
-    console.error("Stack trace:", err.stack);
-    res.status(500).send("Error during redeploy");
+    res.status(500).send("Failed to trigger deploy");
   }
 }
 
 app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}/`);
+  console.log(`🚀 Webhook server running at http://localhost:${port}`);
 });
