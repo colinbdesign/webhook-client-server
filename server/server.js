@@ -60,14 +60,11 @@ async function triggerDeploy(eventType, req, res) {
   };
 
   try {
-    console.log("🚀 Deploy mutation payload:", {
-      projectId,
-      serviceId,
-      environmentId
+    console.log("🎯 FINAL request payload:", {
+      url: graphqlEndpoint,
+      headers,
+      data: mutation
     });
-    console.log("📦 GraphQL payload:", JSON.stringify(mutation, null, 2));
-    console.log("🧠 mutation.variables:", JSON.stringify(mutation.variables, null, 2));
-    console.log("📦 GraphQL mutation (final):", JSON.stringify(mutation, null, 2));
     const response = await axios.post(graphqlEndpoint, mutation, {
       headers,
       timeout: 10000
