@@ -39,6 +39,14 @@ async function triggerDeploy(eventType, req, res) {
 
   console.log(`📣 Received Ghost event: ${eventType}`);
   console.log("📦 Webhook payload:", req.body);
+  console.log("🧪 Sending POST with:", {
+    url: deployUrl,
+    payload: { environmentId },
+    headers: {
+      Authorization: `Bearer ${token.slice(0, 6)}...`,
+      "Content-Type": "application/json"
+    }
+  });
 
   try {
     const response = await axios.post(
@@ -57,11 +65,18 @@ async function triggerDeploy(eventType, req, res) {
     res.status(200).send("Deployment triggered");
   } catch (err) {
     console.error("💥 Error triggering Railway deploy");
+
     if (err.response) {
-      console.error("📄 Response:", err.response.data);
+      console.error("📄 Response data:", err.response.data);
+      console.error("📊 Response status:", err.response.status);
+      console.error("📋 Response headers:", err.response.headers);
+    } else if (err.request) {
+      console.error("🔌 No response received:", err.request);
     } else {
-      console.error("🛑 Error:", err.message);
+      console.error("🧠 Request setup error:", err.message);
     }
+
+    console.error("📚 Stack trace:", err.stack);
     res.status(500).send("Failed to trigger deploy");
   }
 }
