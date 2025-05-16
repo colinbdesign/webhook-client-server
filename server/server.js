@@ -33,7 +33,7 @@ async function triggerGithubWorkflow(req, res) {
 
     const repoOwner = "colinbdesign"; // CHANGE THIS
     const repoName = "website-sandbox";      // CHANGE THIS
-    const workflowFile = "ghost-deploy.yml"; // .github/workflows/ghost-deploy.yml
+    const workflowFile = ".github/workflows/ghost-deploy.yml"; // Include the full path
     const branchRef = "staging-verc-to-rail-static"; // or "staging-verc-to-rail-static" or whatever Railway is watching
 
     const url = `https://api.github.com/repos/${repoOwner}/${repoName}/actions/workflows/${workflowFile}/dispatches`;
