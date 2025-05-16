@@ -24,10 +24,10 @@ app.post("/webhook/deleted", triggerGithubWorkflow);
 // Trigger GitHub Actions workflow
 async function triggerGithubWorkflow(req, res) {
   try {
-    const githubToken = process.env.GITHUB_PAT; // must be fine-scoped: repo + workflow
+    const githubToken = process.env.GITHUB_TOKEN; // must be fine-scoped: repo + workflow
 
     if (!githubToken) {
-      console.error("❌ GITHUB_PAT not set");
+      console.error("❌ GITHUB_TOKEN not set");
       return res.status(500).send("Server misconfigured: missing GitHub token");
     }
 
