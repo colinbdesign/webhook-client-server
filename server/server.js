@@ -10,70 +10,56 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
+// Route handlers
 app.get("/", (req, res) => {
   res.send("👋 Webhook server is online!");
 });
 
-app.post("/webhook/published", (req, res) => triggerDeploy("post.published", req, res));
-app.post("/webhook/updated", (req, res) => triggerDeploy("post.updated", req, res));
-app.post("/webhook/unpublished", (req, res) => triggerDeploy("post.unpublished", req, res));
-app.post("/webhook/deleted", (req, res) => triggerDeploy("post.deleted", req, res));
+// Ghost event webhook endpoints
+app.post("/webhook/published", triggerGithubWorkflow);
+app.post("/webhook/updated", triggerGithubWorkflow);
+app.post("/webhook/unpublished", triggerGithubWorkflow);
+app.post("/webhook/deleted", triggerGithubWorkflow);
 
-async function triggerDeploy(eventType, req, res) {
-  const token = process.env.RAILWAY_API_TOKEN;
-  const projectId = process.env.RAILWAY_PROJECT_ID;
-  const serviceId = process.env.RAILWAY_ASTRO_SERVICE_ID;
-  const environmentId = process.env.RAILWAY_ENVIRONMENT_ID;
-
-  if (!token || !projectId || !serviceId || !environmentId) {
-    console.error("❌ Missing required environment variables");
-    return res.status(500).send("Server misconfigured");
-  }
-
-  console.log(`📣 Received Ghost event: ${eventType}`);
-  console.log("📦 Webhook payload:", req.body);
-  console.log("🧪 Triggering Railway GraphQL deploy...");
-
-  const graphqlEndpoint = "https://backboard.railway.app/graphql/v2";
-  const headers = {
-    "Content-Type": "application/json",
-    "Project-Access-Token": token
-  };
-
-  const mutation = {
-    query: `
-      mutation TriggerDeploy($input: DeploymentCreateInput!) {
-        deploymentCreate(input: $input) {
-          id
-          status
-        }
-      }
-    `,
-    variables: {
-      input: {
-        projectId,
-        serviceId,
-        environmentId
-      }
-    }
-  };
-
+// Trigger GitHub Actions workflow
+async function triggerGithubWorkflow(req, res) {
   try {
-    console.log("🎯 FINAL request payload:", {
-      url: graphqlEndpoint,
-      headers,
-      data: mutation
-    });
-    const response = await axios.post(graphqlEndpoint, mutation, {
-      headers,
-      timeout: 10000
+    const githubToken = process.env.GITHUB_PAT; // must be fine-scoped: repo + workflow
+
+    if (!githubToken) {
+      console.error("❌ GITHUB_PAT not set");
+      return res.status(500).send("Server misconfigured: missing GitHub token");
+    }
+
+    const repoOwner = "colinbdesign"; // CHANGE THIS
+    const repoName = "website-sandbox";      // CHANGE THIS
+    const workflowFile = "ghost-deploy.yml"; // .github/workflows/ghost-deploy.yml
+    const branchRef = "staging-verc-to-rail-static"; // or "staging-verc-to-rail-static" or whatever Railway is watching
+
+    const url = `https://api.github.com/repos/${repoOwner}/${repoName}/actions/workflows/${workflowFile}/dispatches`;
+
+    const headers = {
+      "Authorization": `token ${githubToken}`,
+      "Accept": "application/vnd.github+json",
+      "User-Agent": "ghost-webhook-deploy-bot"
+    };
+
+    const payload = {
+      ref: branchRef
+    };
+
+    console.log("📤 Sending dispatch to GitHub Actions:", {
+      url,
+      headers: { ...headers, Authorization: "REDACTED" },
+      payload
     });
 
-    console.log("✅ Railway deployment triggered:", response.data);
-    res.status(200).send("Deployment triggered");
+    const response = await axios.post(url, payload, { headers });
+
+    console.log("✅ GitHub Action triggered successfully");
+    res.status(200).send("Triggered GitHub Action");
   } catch (err) {
-    console.error("💥 Error triggering Railway deploy");
+    console.error("💥 Failed to trigger GitHub Action");
     if (err.response) {
       console.error("📄 Response data:", err.response.data);
       console.error("📊 Status:", err.response.status);
@@ -84,8 +70,7 @@ async function triggerDeploy(eventType, req, res) {
       console.error("🧠 Setup error:", err.message);
     }
 
-    console.error("📚 Stack trace:", err.stack);
-    res.status(500).send("Failed to trigger deploy");
+    res.status(500).send("Failed to trigger GitHub Action");
   }
 }
 
